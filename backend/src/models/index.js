@@ -1,83 +1,164 @@
-const sequelize = require('../config/database');
-const Role = require('./Role');
-const Department = require('./Department');
-const User = require('./User');
-const Workflow = require('./Workflow');
-const WorkflowStep = require('./WorkflowStep');
-const Request = require('./Request');
-const Approval = require('./Approval');
-const Comment = require('./Comment');
-const Attachment = require('./Attachment');
-const Notification = require('./Notification');
-const AuditLog = require('./AuditLog');
+```js
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const path = require('path');
+require('dotenv').config();
 
-// 1. User & Role
-User.belongsTo(Role, { foreignKey: 'roleId', as: 'role' });
-Role.hasMany(User, { foreignKey: 'roleId', as: 'users' });
+const { sequelize, Role } = require('./models');
 
-// 2. User & Department
-User.belongsTo(Department, { foreignKey: 'departmentId', as: 'department' });
-Department.hasMany(User, { foreignKey: 'departmentId', as: 'members' });
+const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes');
+const departmentRoutes = require('./routes/departmentRoutes');
+const workflowRoutes = require('./routes/workflowRoutes');
+const requestRoutes = require('./routes/requestRoutes');
 
-// Department Manager relationship
-Department.belongsTo(User, { foreignKey: 'managerId', as: 'manager' });
+const { errorHandler } = require('./middlewares/error');
 
-// User Manager relationship
-User.belongsTo(User, { foreignKey: 'managerId', as: 'manager' });
-User.hasMany(User, { foreignKey: 'managerId', as: 'subordinates' });
+const app = express();
 
-// 3. Workflow & WorkflowSteps
-Workflow.hasMany(WorkflowStep, { foreignKey: 'workflowId', as: 'steps', onDelete: 'CASCADE' });
-WorkflowStep.belongsTo(Workflow, { foreignKey: 'workflowId', as: 'workflow' });
+// ==========================================
+// SECURITY HTTP HEADERS
+// ==========================================
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false
+  })
+);
 
-WorkflowStep.belongsTo(Role, { foreignKey: 'approverRoleId', as: 'approverRole' });
-WorkflowStep.belongsTo(User, { foreignKey: 'approverUserId', as: 'approverUser' });
+// ==========================================
+// ENABLE CORS
+// ==========================================
+app.use(
+  cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  })
+);
 
-// 4. Request & User / Workflow
-Request.belongsTo(User, { foreignKey: 'userId', as: 'employee' });
-User.hasMany(Request, { foreignKey: 'userId', as: 'requests' });
+// ==========================================
+// BODY PARSERS
+// ==========================================
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-Request.belongsTo(Workflow, { foreignKey: 'workflowId', as: 'workflow' });
+// ==========================================
+// SERVE UPLOADS
+// ==========================================
+app.use(
+  '/uploads',
+  express.static(path.join(__dirname, '../uploads'))
+);
 
-// 5. Request & Approvals
-Request.hasMany(Approval, { foreignKey: 'requestId', as: 'approvals', onDelete: 'CASCADE' });
-Approval.belongsTo(Request, { foreignKey: 'requestId', as: 'request' });
+// ==========================================
+// API ROUTES
+// ==========================================
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/departments', departmentRoutes);
+app.use('/api/workflows', workflowRoutes);
+app.use('/api/requests', requestRoutes);
 
-Approval.belongsTo(User, { foreignKey: 'approverId', as: 'approver' });
-User.hasMany(Approval, { foreignKey: 'approverId', as: 'actions' });
+// ==========================================
+// BASE ROUTE
+// ==========================================
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Enterprise Workflow Automation API - Online'
+  });
+});
 
-// 6. Request & Comments
-Request.hasMany(Comment, { foreignKey: 'requestId', as: 'comments', onDelete: 'CASCADE' });
-Comment.belongsTo(Request, { foreignKey: 'requestId', as: 'request' });
+// ==========================================
+// GLOBAL ERROR HANDLER
+// ==========================================
+app.use(errorHandler);
 
-Comment.belongsTo(User, { foreignKey: 'userId', as: 'author' });
-User.hasMany(Comment, { foreignKey: 'userId', as: 'comments' });
+const PORT = process.env.PORT || 5000;
 
-// 7. Request & Attachments
-Request.hasMany(Attachment, { foreignKey: 'requestId', as: 'attachments', onDelete: 'CASCADE' });
-Attachment.belongsTo(Request, { foreignKey: 'requestId', as: 'request' });
+// ==========================================
+// INITIALIZE DATABASE & START SERVER
+// ==========================================
+async function startServer() {
+  try {
+    // Connect to database
+    await sequelize.authenticate();
+    console.log('Database Connected.');
 
-Attachment.belongsTo(User, { foreignKey: 'uploadedBy', as: 'uploader' });
+    // Sync database models
+    if (process.env.NODE_ENV !== 'production') {
+      await sequelize.sync();
+      console.log('Database models synchronized.');
 
-// 8. User & Notifications
-Notification.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-User.hasMany(Notification, { foreignKey: 'userId', as: 'notifications' });
+      // ==========================================
+      // INITIALIZE DEFAULT ROLES
+      // ==========================================
 
-// 9. User & AuditLogs
-AuditLog.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-User.hasMany(AuditLog, { foreignKey: 'userId', as: 'auditLogs' });
+      const roles = [
+        {
+          id: 1,
+          name: 'Employee',
+          permissions: []
+        },
+        {
+          id: 2,
+          name: 'Manager',
+          permissions: []
+        },
+        {
+          id: 3,
+          name: 'HR',
+          permissions: []
+        },
+        {
+          id: 4,
+          name: 'Finance',
+          permissions: []
+        },
+        {
+          id: 5,
+          name: 'Admin',
+          permissions: []
+        }
+      ];
 
-module.exports = {
-  sequelize,
-  Role,
-  Department,
-  User,
-  Workflow,
-  WorkflowStep,
-  Request,
-  Approval,
-  Comment,
-  Attachment,
-  Notification,
-  AuditLog
-};
+      for (const role of roles) {
+        await Role.findOrCreate({
+          where: {
+            id: role.id
+          },
+          defaults: {
+            name: role.name,
+            permissions: role.permissions
+          }
+        });
+      }
+
+      console.log('Default roles initialized.');
+    }
+
+    // ==========================================
+    // START EXPRESS SERVER
+    // ==========================================
+
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(
+        `Express Backend Server running on port ${PORT}`
+      );
+    });
+
+  } catch (error) {
+    console.error('Database connection failed:', error);
+    process.exit(1);
+  }
+}
+
+// ==========================================
+// START APPLICATION
+// ==========================================
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}
+
+module.exports = app;
+```
