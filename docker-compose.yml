@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: workflow_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: workflow_db
+      MYSQL_USER: workflow_user
+      MYSQL_PASSWORD: workflow_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: workflow_backend
+    restart: always
+    environment:
+      - PORT=5000
+      - DB_HOST=db
+      - DB_USER=workflow_user
+      - DB_PASS=workflow_password
+      - DB_NAME=workflow_db
+      - JWT_SECRET=supersecretjwtkey_12345
+      - WORKFLOW_SERVICE_URL=http://workflow_service:8000
+    ports:
+      - "5000:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  workflow_service:
+    build: ./workflow-service
+    container_name: workflow_fastapi
+    restart: always
+    environment:
+      - DATABASE_URL=mysql+pymysql://workflow_user:workflow_password@db/workflow_db
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    container_name: workflow_frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+      - workflow_service
+
+volumes:
+  db_data:

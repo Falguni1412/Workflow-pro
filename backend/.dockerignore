@@ -1,0 +1,10 @@
+node_modules
+npm-debug.log
+.env
+.env.*
+workflow.sqlite
+uploads/*
+!uploads/.gitkeep
+*.log
+coverage
+.DS_Store
