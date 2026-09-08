@@ -1,4 +1,4 @@
-```js
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -161,4 +161,3 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 module.exports = app;
-```
