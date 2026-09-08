@@ -69,51 +69,49 @@ async function startServer() {
     await sequelize.authenticate();
     console.log('Database Connected.');
 
-    // Sync models
-    if (process.env.NODE_ENV !== 'production') {
-      await sequelize.sync();
-      console.log('Database models synchronized.');
+    // Sync models in all environments
+    await sequelize.sync();
+    console.log('Database models synchronized.');
 
-      // Initialize default roles
-      const roles = [
-        {
-          id: 1,
-          name: 'Employee',
-          permissions: []
-        },
-        {
-          id: 2,
-          name: 'Manager',
-          permissions: []
-        },
-        {
-          id: 3,
-          name: 'HR',
-          permissions: []
-        },
-        {
-          id: 4,
-          name: 'Finance',
-          permissions: []
-        },
-        {
-          id: 5,
-          name: 'Admin',
-          permissions: []
-        }
-      ];
-
-      for (const role of roles) {
-        await Role.findOrCreate({
-          where: {
-            id: role.id
-          },
-          defaults: role
-        });
+    // Initialize default roles in all environments
+    const roles = [
+      {
+        id: 1,
+        name: 'Employee',
+        permissions: []
+      },
+      {
+        id: 2,
+        name: 'Manager',
+        permissions: []
+      },
+      {
+        id: 3,
+        name: 'HR',
+        permissions: []
+      },
+      {
+        id: 4,
+        name: 'Finance',
+        permissions: []
+      },
+      {
+        id: 5,
+        name: 'Admin',
+        permissions: []
       }
+    ];
 
-      console.log('Default roles initialized.');
+    for (const role of roles) {
+      await Role.findOrCreate({
+        where: {
+          id: role.id
+        },
+        defaults: role
+      });
     }
+
+    console.log('Default roles initialized.');
 
     // Start Express server
     app.listen(PORT, '0.0.0.0', () => {
